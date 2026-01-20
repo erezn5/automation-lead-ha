@@ -136,7 +136,7 @@ Implement tests validating real execution flow.
 ## Docker Execution (Mandatory)
 
 Your test suite must run **only** via Docker.
-YOU CAN USE the `.dockerignore`, `.Dockerfile` and `requirements.txt` from this repo
+YOU MAY USE the `.dockerignore`, `.Dockerfile` and `requirements.txt` from this repo
 
 ```bash
 docker build -t vault-automation-test .
