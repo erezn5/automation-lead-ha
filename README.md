@@ -1,11 +1,11 @@
 # Automation Tech Lead – Home Assignment  
-## End-to-End Test Framework for Data Pipeline Integrity
+## Automation Test Project for Data Pipeline Integrity
 
 ---
 
 ## Objective
 
-Design and implement a **production-grade automation test framework** validating an end-to-end data pipeline.
+Design and implement a **production-grade automation test project** validating an end-to-end data pipeline.
 
 **Definition of Done:**  
 You submit a GitHub repository containing a runnable automation project with:
@@ -80,7 +80,7 @@ flowchart LR
 
 ## Assignment Requirements
 
-### 1. Framework Architecture (Tech Lead Level)
+### 1. Project Architecture (Tech Lead Level)
 
 Design for extensibility and testability.
 
@@ -89,13 +89,7 @@ Design for extensibility and testability.
 - No hard-coded clients
 - Clear separation of concerns
 
-**Expected Structure:**
-- `VaultService` orchestrator
-- Abstract interfaces for:
-  - Object storage
-  - Database access
-  - API client
-- Concrete implementations wired via fixtures
+- Concrete implementations via fixtures
 
 ---
 
