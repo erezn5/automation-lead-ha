@@ -53,23 +53,29 @@ You must use the following stack:
 No external cloud resources may be used.
 
 ---
+## System Under Test – Audit Vault Service
+
 ```mermaid
-graph LR
-    A[External API] -->|Fetch Log| B(Vault Service)
-    B -->|Upload Raw JSON| C[(AWS S3 Archive)]
-    B -->|Write Metadata| D[(MongoDB Audit)]
-    
-    subgraph "Your Test Environment"
-    B
+flowchart LR
+    API[External REST API]
+    VS[VaultService<br/>Orchestrator]
+    S3[(AWS S3<br/>Raw Logs)]
+    DB[(MongoDB<br/>Audit Records)]
+
+    API -->|Fetch log entry| VS
+    VS -->|Upload JSON| S3
+    VS -->|Write metadata| DB
+
+    subgraph Metadata
+        KEY[S3 Object Key]
+        TS[Timestamp]
+        STATUS[Status]
     end
 
-    subgraph "Mocked Infrastructure"
-    A
-    C
-    D
-    end
+    DB --> KEY
+    DB --> TS
+    DB --> STATUS
 ```
-
 ---
 
 ## Assignment Requirements
