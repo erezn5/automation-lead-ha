@@ -1,59 +1,32 @@
-# Automation Tech Lead – Home Assignment  
-## Automation Test Project for Data Pipeline Integrity
+# 🚀 Automation Tech Lead: Data Pipeline Integrity Project
+
+## 1. Project Objective
+
+Design and implement a production-grade automation test project validating an end-to-end data pipeline. You are responsible for building both the **System Under Test (SUT)** and the **Automation Framework**.
+
+This assignment evaluates:
+- Architectural design for extensibility and test isolation.
+- Mastery of pytest lifecycle, fixtures, and mocking strategies.
+- Deterministic handling of failures across a multi-component pipeline.
+
+The use of AI tools is **expected and encouraged**.  
+However, evaluation focuses on your **engineering judgment**:
+- Critical review of all AI-generated code.
+- Explicit intervention where AI output is incorrect, incomplete, or suboptimal.
+- Demonstrated understanding of automation architecture decisions and pytest strategies.
+
+Your reasoning, corrections, and architectural choices must be documented in `AI_WORKFLOW.md`.
 
 ---
 
-## Objective
+## 2. System Architecture & Data Flow
 
-Design and implement a **production-grade automation test project** validating an end-to-end data pipeline.
+The following section describes the required interaction between the **Vault Service** (SUT) and the external components. Your implementation must respect these boundaries.
 
-**Definition of Done:**  
-You submit a GitHub repository containing a runnable automation project with:
-- Clear execution instructions
-- Explicitly defined test scope
-- Fully automated end-to-end tests
-
----
-
-## System Under Test (SUT)
-
-**Audit Vault Service**
-
-A service responsible for:
-1. Fetching security log entries from an external REST API  
-2. Archiving raw log payloads into **AWS S3**  
-3. Writing audit metadata into **MongoDB**
-
----
-
-## Data Flow
-
-1. **Extract** – Fetch log data from REST API  
-2. **Load (S3)** – Store raw JSON payload in S3  
-3. **Audit (DB)** – Persist metadata record in MongoDB  
-   - S3 object key  
-   - Timestamp  
-   - Status  
-
----
-
-## Technical Constraints
-
-You must use the following stack:
-
-| Area | Requirement |
-|----|----|
-| Language | Python 3.9+ |
-| Test Framework | `pytest` |
-| AWS Mocking | `moto` (S3) |
-| MongoDB Mocking | `mongomock` |
-| API Mocking | `responses` **or** `respx` |
-| Execution | Docker |
-
-No external cloud resources may be used.
-
----
-## System Under Test – Audit Vault Service
+- An external REST API is queried to fetch audit logs.
+- The Audit Vault Service processes the payload.
+- Raw JSON payloads are archived to AWS S3.
+- Metadata records are written to MongoDB.
 
 ```mermaid
 graph LR
@@ -74,98 +47,60 @@ graph LR
     Service -- 2. Archive Payload --> S3
     Service -- 3. Write Audit Record --> DB
 ```
----
 
-## Assignment Requirements
+### 🛠️ Mandatory Architectural Standards
 
-### 1. Project Architecture (Tech Lead Level)
+* **Dependency Injection (DI)**: Use constructors to inject clients (S3, MongoDB, API); hard-coded clients are strictly prohibited.
 
-Design for extensibility and testability.
-
-**Mandatory:**
-- Dependency Injection via constructors
-- No hard-coded clients
-- Clear separation of concerns
-
-- Concrete implementations via fixtures
+* **Separation of Concerns**: Maintain a clear distinction between the service logic (the SUT) and the test suite logic.
 
 ---
 
-### 2. Pytest Design & Isolation
+## 3. Automation & Lifecycle Requirements
 
-Demonstrate advanced pytest usage.
+Your test suite must run using `pytest` and adhere to strict isolation standards.
 
-**Requirements:**
-- Centralized fixture management in `conftest.py`
-- Full isolation per test:
-  - Empty S3 bucket
-  - Empty MongoDB collection
-- Use `yield` fixtures for setup/teardown
-- Thoughtful fixture scoping (`session` vs `function`)
+### 🧹 Explicit Setup & Teardown
 
----
+* **Centralized Fixtures**: All lifecycle management must reside in `tests/conftest.py`.
 
-### 3. End-to-End Test Scenarios
+* **Yield Fixtures**: Demonstrate proper resource management using `yield` for setup and teardown.
 
-Implement tests validating real execution flow.
+* **Strict Isolation**: Every test must start with a **guaranteed empty** S3 bucket and **empty** MongoDB collection.
 
-#### Scenario 1 – Happy Path
-- API returns valid payload
-- Payload uploaded to S3
-- Metadata recorded in MongoDB
-- Assertions validate:
-  - S3 object existence
-  - MongoDB record correctness
-
-#### Scenario 2 – Storage Failure
-- Simulate S3 `403 Forbidden`
-- Verify:
-  - No MongoDB audit record is written
-  - Failure is handled deterministically
-
-#### Scenario 3 – API Resilience
-- First API call returns `503 Service Unavailable`
-- Second attempt succeeds
-- Implement retry logic
-- Assert successful pipeline completion
+* **Mocking Stack**: You must use `moto` (S3), `mongomock` (MongoDB), and `respx` or `responses` (API). **No external cloud resources may be used**.
 
 ---
 
-## Docker Execution (Mandatory)
+## 4. Test Scenarios (End-to-End)
 
-Your test suite must run **only** via Docker.
-YOU MAY USE the `.dockerignore`, `.Dockerfile` and `requirements.txt` from this repo
+Implement the following deterministic scenarios:
 
-```bash
-docker build -t vault-automation-test .
-docker run --rm vault-automation-test
-```
+| Scenario | Input/Condition | Required Assertions |
+| --- | --- | --- |
+| **1. Happy Path** | API returns valid 200 payload. | Validate S3 object existence and MongoDB record correctness. |
+| **2. Storage Failure** | Simulate S3 `403 Forbidden`. | Verify no MongoDB record is written and failure is handled deterministically. |
+| **3. API Resilience** | First API call returns `503 Service Unavailable`; second call succeeds. | Implement **Retry Logic** and assert successful pipeline completion. |
 
-## Definition of Done (DoD)
+---
 
-Your submission is considered complete when:
+## 5. Modern Workflow (AI Requirement)
 
-- Repository is forked and pushed to your GitHub account
-- Tests run successfully using Docker only
-- README includes:
-  - How to run the tests
-  - What is being tested
-  - 2–3 paragraphs explaining:
-    - Dependency Injection decisions
-    - Test isolation strategy
-- Code quality:
-  - PEP8 compliant
-  - Clear naming
-  - Deterministic tests
+The use of AI tools (ChatGPT, Claude, Copilot, etc.) is encouraged to accelerate development. However, as part of the "Definition of Done," you must submit an **`AI_WORKFLOW.md`** file containing:
 
+* **Prompt Logs**: A list of the primary prompts used to generate the architecture or logic.
+* **Engineering Oversight**: A section explaining where the AI provided an incorrect or "hallucinated" solution and how you refactored it to meet these project requirements.
 
-### Evaluation Focus
-  - Architectural clarity
-  - Test reliability
-  - Isolation correctness
-  - Failure handling
-  - Code readability
-  - Leadership-level design decisions
+---
 
-## Deliverable:
-A GitHub repository link containing the completed automation project.
+## 6. Definition of Done (DoD)
+
+Please send us link to a complete project ; The project is complete when:
+
+1. **Repository**: Forked and pushed to your GitHub account. Should include the files, the AI_Prompts
+
+2. **Execution**: The suite runs successfully via Docker: we will download your project and run: `docker build -t vault-test . && docker run --rm vault-test`.
+
+3. **README**: Includes execution instructions and 2-3 paragraphs explaining your **Dependency Injection** and **Test Isolation** strategies, and what AI tools you have been using.
+
+4. **Standards**: Code is PEP8 compliant with clear naming and deterministic results.
