@@ -56,25 +56,23 @@ No external cloud resources may be used.
 ## System Under Test – Audit Vault Service
 
 ```mermaid
-flowchart LR
-    API[External REST API]
-    VS[VaultService<br/>Orchestrator]
-    S3[(AWS S3<br/>Raw Logs)]
-    DB[(MongoDB<br/>Audit Records)]
-
-    API -->|Fetch log entry| VS
-    VS -->|Upload JSON| S3
-    VS -->|Write metadata| DB
-
-    subgraph Metadata
-        KEY[S3 Object Key]
-        TS[Timestamp]
-        STATUS[Status]
+graph LR
+    subgraph External_Services
+        API[External REST API]
     end
 
-    DB --> KEY
-    DB --> TS
-    DB --> STATUS
+    subgraph System_Under_Test [SUT]
+        Service[Audit Vault Service]
+    end
+
+    subgraph Storage_Layer
+        S3[(AWS S3 - Raw JSON)]
+        DB[(MongoDB - Metadata)]
+    end
+
+    API -- 1. Fetch Logs --> Service
+    Service -- 2. Archive Payload --> S3
+    Service -- 3. Write Audit Record --> DB
 ```
 ---
 
