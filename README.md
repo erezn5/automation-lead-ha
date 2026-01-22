@@ -97,7 +97,7 @@ The use of AI tools (ChatGPT, Claude, Copilot, etc.) is encouraged to accelerate
 
 Please send us link to a complete project ; The project is complete when:
 
-1. **Repository**: Forked and pushed to your GitHub account. Should include the files, the AI_Prompts
+1. **Repository**: Forked and pushed to your GitHub account. Should include the files
 
 2. **Execution**: The suite runs successfully via Docker: we will download your project and run: `docker build -t vault-test . && docker run --rm vault-test`.
 
