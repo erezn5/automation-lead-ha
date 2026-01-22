@@ -7,7 +7,7 @@ You are tasked with building a production-grade automation framework for the **A
 This assignment evaluates your ability to:
 
 * **Architect** a scalable test framework (Service Object Model).
-* **Orchestrate** complex mocks (S3, MongoDB, REST APIs).
+* You may use mocks to orchestrate S3, MongoDB, REST APIs.
 * **Validate** data at rest (deep-diffing raw logs).
 * **Apply** engineering judgment when using AI tools.
 
@@ -17,45 +17,46 @@ This assignment evaluates your ability to:
 
 ### System Overview
 
-The **Audit Vault System** is a data-ingestion and audit-storage pipeline designed to reliably collect, validate, and persist audit logs from external providers into immutable, queryable storage.
+The **Audit Vault System** is a high-volume, asynchronous data pipeline designed to collect audit logs from external providers and persist them into immutable storage.
 
-The system operates asynchronously and is optimized for high-volume, append-only workloads where **data fidelity, ordering, and integrity** are critical.
+### Core Objectives for Candidates
 
-#### Core Responsibilities
+| Objective | Description |
+|---------|-------------|
+| Data Fidelity | Ensure zero mutation from source to storage. |
+| Integrity | Verify end-to-end integrity using cryptographic checksums. |
+| Resilience | Validate behavior under partial infrastructure failures (e.g., S3/DB brownouts). |
 
-- **Ingest** audit data from external providers on demand.
-- **Process** ingestion jobs asynchronously with backpressure and retry handling.
-- **Persist** raw, unmodified log payloads in object storage.
-- **Index** and store log metadata for search and retrieval.
-- **Guarantee** end-to-end data integrity via cryptographic checksums.
-- **Expose** deterministic APIs for audit verification and compliance workflows.
+---
 
-#### Logical Architecture
+## 2. Architecture & API Mapping
 
-The system is composed of five logical layers:
+The system is divided into two logical planes:
 
-1. **Ingestion API Layer**  
-   Accepts ingestion requests, validates provider configuration, and enqueues jobs for processing.
+- **Control Plane**: Manages orchestration and job lifecycle.
+- **Data Plane**: Manages raw payload storage and retrieval.
 
-2. **Job Orchestration Layer**  
-   Manages asynchronous job state transitions (`pending → processing → completed | failed`), retry strategies, and failure recovery.
+| Logical Layer | Responsibility | Associated API Endpoint |
+|--------------|----------------|--------------------------|
+| Ingestion | Accepts requests and enqueues jobs. | `POST /v1/ingest` |
+| Orchestration | Manages job states: `pending` → `processing` → `completed`. | `GET /v1/jobs/{job_id}` |
+| Provider | Validates credentials and pulls raw data. | `POST /v1/providers/validate` |
+| Persistence | Stores raw data in **S3** and metadata in **MongoDB**. | Internal storage operations |
+| Retrieval | Fetches logs and validates SHA-256 checksums. | `GET /v1/logs`, `GET /v1/logs/{id}/raw` |
 
-3. **Provider Integration Layer**  
-   Pulls raw audit data from external providers and normalizes transport without mutating content.
+---
 
-4. **Persistence Layer**  
-   - **Object Storage (S3)**: Stores raw audit payloads exactly as received.  
-   - **Metadata Store (MongoDB)**: Stores log identifiers, timestamps, checksums, and object references.
+## 3. Data Integrity & Operational Contract
 
-5. **Retrieval & Verification Layer**  
-   Enables search, raw log retrieval, and checksum-based integrity validation for consumers and auditors.
+The automation framework must validate the following system guarantees:
 
-#### Data Integrity Model
-
-- Raw audit data is **never transformed** after ingestion.
-- A **SHA-256 checksum** is calculated on write and stored alongside metadata.
-- Retrieval APIs expose both the raw payload and its checksum, enabling independent verification.
-- Metadata and raw storage are intentionally decoupled, allowing consistency and failure scenarios to be observable and testable.
+| Feature | System Contract | Testing Requirement |
+|--------|-----------------|---------------------|
+| Immutability | Raw audit data is never transformed after ingestion. | Perform a structural deep-diff between source and S3. |
+| Verification | A SHA-256 checksum is generated on write. | Match the `X-Vault-Checksum` header against the raw body. |
+| Asynchronicity | Ingestion is non-blocking; job state is polled. | Implement polling with timeouts and failure handling. |
+| Idempotency | Duplicate ingestion requests do not create redundant data. | Verify repeated calls do not corrupt or duplicate archives. |
+| Resilience | Partial infra failures are handled gracefully. | Mock infra failures and validate retry behavior. |
 
 #### Operational Characteristics
 
@@ -75,27 +76,55 @@ graph TD
         SOM[Service Object Model]
     end
 
-    subgraph SUT_Layer [System Under Test]
-        SUT[Audit Vault Service API]
+    subgraph SUT_Layer [System Under Test: Audit Vault Service]
+        API[v1 API Endpoints]
+        ORCH[Job Orchestrator]
+        INTEG[Provider Integration]
     end
 
     subgraph Mocked_Infrastructure [Infrastructure Mocks]
-        EXT_API[External Provider API - Mocked via respx]
-        S3[(AWS S3 - Mocked via moto)]
-        DB[(MongoDB - Mocked via mongomock)]
+        EXT_API[External Provider API - respx]
+        S3[(AWS S3 - moto)]
+        DB[(MongoDB - mongomock)]
     end
 
+    %% Flow
     TS --> SOM
-    SOM -- REST Calls --> SUT
+    SOM -- "1. REST Calls" --> API
     
-    SUT -- 1. Pull Logs --> EXT_API
-    SUT -- 2. Archive JSON --> S3
-    SUT -- 3. Store Metadata --> DB
+    API --> ORCH
+    ORCH --> INTEG
     
+    INTEG -- "2. Pull Logs" --> EXT_API
+    ORCH -- "3. Archive JSON" --> S3
+    ORCH -- "4. Store Metadata" --> DB
+    
+    %% Verification Paths
     SOM -.->|Verification| S3
     SOM -.->|Verification| DB
+    
+    %% Styling
+    style Automation_Framework fill:#f9f,stroke:#333,stroke-width:2px
+    style SUT_Layer fill:#bbf,stroke:#333,stroke-width:2px
+    style Mocked_Infrastructure fill:#dfd,stroke:#333,stroke-width:2px
 
 ```
+## API Specification Summary
+
+### Control Plane APIs
+
+| Method | Endpoint | Description |
+|-------|----------|-------------|
+| POST | `/v1/ingest` | Triggers a new ingestion job. Returns `job_id` and `estimated_completion_ms`. |
+| GET | `/v1/jobs/{job_id}` | Returns job state (`pending`, `processing`, `completed`, `failed`) and `s3_path`. |
+| POST | `/v1/providers/validate` | Performs connectivity and credential validation for providers. |
+
+### Data Plane APIs
+
+| Method | Endpoint | Description |
+|-------|----------|-------------|
+| GET | `/v1/logs` | Paginated metadata search including log IDs and checksums. |
+| GET | `/v1/logs/{log_id}/raw` | Streams the original JSON payload with `X-Vault-Checksum` header. |
 
 
 ### 📡 1. Trigger Data Ingestion
