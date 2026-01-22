@@ -65,10 +65,6 @@ The automation framework may (feel free to test whatever suits you) validate the
 - Retry-aware infrastructure interactions.
 - Explicit separation between control plane (jobs, metadata) and data plane (raw payloads).
 
-This system description defines the behavioral contract that the automation framework must validate before interacting with the public APIs below.
-
-The service is available at `http://localhost:8080`. Your framework must interact with **five** endpoints.
-
 ```mermaid
 graph TD
     subgraph Automation_Framework [Automation Suite]
@@ -109,6 +105,12 @@ graph TD
     style Mocked_Infrastructure fill:#dfd,stroke:#333,stroke-width:2px
 
 ```
+
+
+
+***The service is available at `http://localhost:8080`. Your framework must interact with **five** endpoints.***
+
+
 ## API Specification Summary
 
 ### Control Plane APIs
