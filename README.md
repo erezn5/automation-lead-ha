@@ -48,7 +48,7 @@ The system is divided into two logical planes:
 
 ## 3. Data Integrity & Operational Contract
 
-The automation framework must validate the following system guarantees:
+The automation framework may (feel free to test whatever suits you) validate the following system guarantees:
 
 | Feature | System Contract | Testing Requirement |
 |--------|-----------------|---------------------|
