@@ -26,11 +26,11 @@ The framework is built on a layered architecture to maximize maintainability and
 
 ```mermaid
 graph TD
-    A[Test Layer (pytest)] -->|Uses| B[Fixtures (DI Container)]
-    B -->|Injects| C[Service Layer (AuditVaultClient)]
-    B -->|Injects| D[Utility Layer (Poller)]
-    C -->|Validates| E[Data Models (Pydantic)]
-    C -->|Requests| F[Network / Mocks]
+    TestLayer[Test Layer - pytest] -->|uses| Fixtures[Fixtures - DI Container]
+    Fixtures -->|injects| ServiceLayer[Service Layer - AuditVaultClient]
+    Fixtures -->|injects| Poller[Utility Layer - Poller]
+    ServiceLayer -->|validates| Models[Data Models - Pydantic]
+    ServiceLayer -->|requests| Network[Network / Mocks]
 ```
 
 ## Key Components
