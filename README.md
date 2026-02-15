@@ -1,285 +1,153 @@
-# 🚀 Automation Tech Lead: Data Pipeline Integrity Project
+# 🛡️ Audit Vault Automation Framework
 
-## 1. Project Objective
+> **A production-grade test automation framework designed to verify the integrity, resilience, and consistency of the Audit Vault ingestion service.**
 
-You are tasked with building a production-grade automation framework for the **Audit Vault Service (SUT)**. The service is already built and running; your goal is to validate the reliability, data integrity, and error-handling of the pipeline that moves data from external providers into secure storage.
-
-This assignment evaluates your ability to:
-
-* **Architect** a scalable test framework (Service Object Model).
-* You may use mocks to orchestrate S3, MongoDB, REST APIs.
-* **Validate** data at rest (deep-diffing raw logs).
-* **Apply** engineering judgment when using AI tools.
+This project implements the Service Object Model (SOM) pattern, keeping test logic, API interaction, and data validation cleanly separated and highly testable.
 
 ---
 
-## 2. API Specifications (The SUT)
+## 🗺️ Visual Architecture
 
-### System Overview
+### 🧠 Project Mind Map
+*High-level overview of the framework components, layers, and responsibilities.*
 
-The **Audit Vault System** is a high-volume, asynchronous data pipeline designed to collect audit logs from external providers and persist them into immutable storage.
+![mind_map.png](docs/mind_map.png)
 
-### Core Objectives for Candidates
+### ➡️ Automation Workflow (Infographic)
+*The step-by-step lifecycle of a "Log Fidelity" test: from data generation to validation.*
 
-| Objective | Description |
-|---------|-------------|
-| Data Fidelity | Ensure zero mutation from source to storage. |
-| Integrity | Verify end-to-end integrity using cryptographic checksums. |
-| Resilience | Validate behavior under partial infrastructure failures (e.g., S3/DB brownouts). |
+![infographic.png](docs/infographic.png)
 
 ---
 
-## 2. Architecture & API Mapping
+## 🏗️ Architecture & Design
 
-The system is divided into two logical planes:
-
-- **Control Plane**: Manages orchestration and job lifecycle.
-- **Data Plane**: Manages raw payload storage and retrieval.
-
-| Logical Layer | Responsibility | Associated API Endpoint |
-|--------------|----------------|--------------------------|
-| Ingestion | Accepts requests and enqueues jobs. | `POST /v1/ingest` |
-| Orchestration | Manages job states: `pending` → `processing` → `completed`. | `GET /v1/jobs/{job_id}` |
-| Provider | Validates credentials and pulls raw data. | `POST /v1/providers/validate` |
-| Persistence | Stores raw data in **S3** and metadata in **MongoDB**. | Internal storage operations |
-| Retrieval | Fetches logs and validates SHA-256 checksums. | `GET /v1/logs`, `GET /v1/logs/{id}/raw` |
-
----
-
-## 3. Data Integrity & Operational Contract
-
-The automation framework may (feel free to test whatever suits you) validate the following system guarantees:
-
-| Feature | System Contract | Testing Requirement |
-|--------|-----------------|---------------------|
-| Immutability | Raw audit data is never transformed after ingestion. | Perform a structural deep-diff between source and S3. |
-| Verification | A SHA-256 checksum is generated on write. | Match the `X-Vault-Checksum` header against the raw body. |
-| Asynchronicity | Ingestion is non-blocking; job state is polled. | Implement polling with timeouts and failure handling. |
-| Idempotency | Duplicate ingestion requests do not create redundant data. | Verify repeated calls do not corrupt or duplicate archives. |
-| Resilience | Partial infra failures are handled gracefully. | Mock infra failures and validate retry behavior. |
-
-#### Operational Characteristics
-
-- Fully asynchronous execution.
-- Idempotent ingestion behavior.
-- Retry-aware infrastructure interactions.
-- Explicit separation between control plane (jobs, metadata) and data plane (raw payloads).
+The framework is built on a layered architecture to maximize maintainability and scalability:
 
 ```mermaid
 graph TD
-    subgraph Automation_Framework [Automation Suite]
-        TS[Test Suite / Pytest]
-        SOM[Service Object Model]
-    end
-
-    subgraph SUT_Layer [System Under Test: Audit Vault Service]
-        API[v1 API Endpoints]
-        ORCH[Job Orchestrator]
-        INTEG[Provider Integration]
-    end
-
-    subgraph Mocked_Infrastructure [Infrastructure Mocks]
-        EXT_API[External Provider API - respx]
-        S3[(AWS S3 - moto)]
-        DB[(MongoDB - mongomock)]
-    end
-
-    %% Flow
-    TS --> SOM
-    SOM -- "1. REST Calls" --> API
-    
-    API --> ORCH
-    ORCH --> INTEG
-    
-    INTEG -- "2. Pull Logs" --> EXT_API
-    ORCH -- "3. Archive JSON" --> S3
-    ORCH -- "4. Store Metadata" --> DB
-    
-    %% Verification Paths
-    SOM -.->|Verification| S3
-    SOM -.->|Verification| DB
-    
-    %% Styling
-    style Automation_Framework fill:#f9f,stroke:#333,stroke-width:2px
-    style SUT_Layer fill:#bbf,stroke:#333,stroke-width:2px
-    style Mocked_Infrastructure fill:#dfd,stroke:#333,stroke-width:2px
-
+    A[Test Layer (pytest)] -->|Uses| B[Fixtures (DI Container)]
+    B -->|Injects| C[Service Layer (AuditVaultClient)]
+    B -->|Injects| D[Utility Layer (Poller)]
+    C -->|Validates| E[Data Models (Pydantic)]
+    C -->|Requests| F[Network / Mocks]
 ```
 
+## Key Components
 
+### Service Layer (`src/clients`)
+* Abstraction: `AuditVaultClient` wraps all HTTP interactions and exposes concise, typed methods for the control- and data-plane endpoints.
+* Testability / DI: The client accepts an optional `requests.Session` and optional retry config — this makes it easy to inject mocks or instrumented sessions for tests.
+* Idempotency: The client will send an `Idempotency-Key` header on ingestion requests; tests can pass an explicit key to verify idempotent behavior.
+* Error Handling: The client raises structured exceptions (`ApiError`, `NotFoundError`) instead of generic text-only exceptions so tests and callers can assert status and body programmatically.
 
-***The service is available at `http://localhost:8080`. Your framework must interact with **five** endpoints.***
+### Utility Layer (`src/utils`)
+* Smart Polling: Uses `tenacity` for polling job status with backoff and timeouts.
+* Data Generator: Produces complex payloads (Unicode, large ints, nested nulls) for fidelity tests.
 
+---
 
-## API Specification Summary
+## 💉 Dependency Injection & Mocking
 
-### Control Plane APIs
+This project prioritizes test isolation and avoids global state.
 
-| Method | Endpoint | Description |
-|-------|----------|-------------|
-| POST | `/v1/ingest` | Triggers a new ingestion job. Returns `job_id` and `estimated_completion_ms`. |
-| GET | `/v1/jobs/{job_id}` | Returns job state (`pending`, `processing`, `completed`, `failed`) and `s3_path`. |
-| POST | `/v1/providers/validate` | Performs connectivity and credential validation for providers. |
+### Fixtures
+Pytest fixtures in `tests/conftest.py` provide the `client`, `poller`, and `mock_api` fixtures. Tests request these fixtures rather than instantiating objects directly.
 
-### Data Plane APIs
+### Mocking Strategy
+We use `requests-mock` per test. Each test wires up only the responses it needs and the mock context is torn down after the test to prevent cross-test leakage.
 
-| Method | Endpoint | Description |
-|-------|----------|-------------|
-| GET | `/v1/logs` | Paginated metadata search including log IDs and checksums. |
-| GET | `/v1/logs/{log_id}/raw` | Streams the original JSON payload with `X-Vault-Checksum` header. |
+---
 
+## 📂 Project Structure
 
-### 📡 1. Trigger Data Ingestion
-
-**Endpoint**: `POST /v1/ingest`
-
-**Request**:
-
-```json
-{
-  "provider_id": "aws_cloudtrail",
-  "range": { "start": "2026-01-01T00:00:00Z", "end": "2026-01-02T00:00:00Z" },
-  "priority": "high"
-}
-```
-
-**Response** (202 Accepted):
-
-```json
-{ "job_id": "job_99b7", "status": "queued", "estimated_completion_ms": 5000 }
+```text
+audit-vault-automation/
+├── src/
+│   ├── clients/               # API Client & HTTP Adapters (Retry logic)
+│   ├── models/                # Pydantic Schemas (Data Validation)
+│   ├── utils/                 # Polling logic & Data Generators
+│   └── config/                # Environment variables
+├── tests/
+│   ├── conftest.py            # DI Container & Fixtures
+│   ├── test_data_fidelity.py  # Scenario 1: DeepDiff + strict SHA-256 check
+│   ├── test_resilience.py     # Scenario 2: Infrastructure Brownouts
+│   ├── test_consistency.py    # Scenario 3: Orphaned Data (Edge Case)
+│   └── test_idempotency.py    # Scenario 4: Idempotency verification
+├── Dockerfile                 # Container definition
+└── requirements.txt           # Python dependencies
 ```
 
 ---
 
-### 📊 2. Job Status Polling
+## 💡 How the tests address the task requirements
 
-**Endpoint**: `GET /v1/jobs/{job_id}`
+1. Data Fidelity
+   - `tests/test_data_fidelity.py`:
+     - Generates a complex payload (unicode, large ints, nested nulls).
+     - Mocks the raw log endpoint to return a canonical JSON text (sorted keys, compact separators).
+     - Computes SHA-256 over the canonical bytes and asserts equality with the `X-Vault-Checksum` header.
+     - Performs a DeepDiff between the source payload and the fetched JSON.
 
-**Response** (200 OK):
+   Notes: The test canonicalizes JSON by using `json.dumps(..., sort_keys=True, separators=(",", ":"), ensure_ascii=False)` so the hash is deterministic. Ensure the SUT produces identically serialized bytes for end-to-end integration tests, or adapt the canonicalization to match the SUT.
 
-```json
-{
-  "job_id": "job_99b7",
-  "state": "completed",
-  "metrics": { "records_synced": 150, "bytes_written": 102400 },
-  "artifacts": { "s3_path": "s3://vault/2026/01/01/logs.json" }
-}
+2. Integrity (Checksum)
+   - The test asserts strict equality between computed SHA-256 digest and `X-Vault-Checksum` to ensure end-to-end integrity.
+
+3. Asynchronicity & Polling
+   - `src/utils/poller.py` uses `tenacity` to poll `/v1/jobs/{job_id}` until completion with a timeout and backoff.
+
+4. Resilience
+   - `AuditVaultClient` mounts a `requests.adapters.HTTPAdapter` with a `Retry` policy for transient 5xx errors.
+   - Unit tests using `requests-mock` simulate 503 then 202 sequences and assert the client recovers (the client also has a small client-side retry loop used only for unit-test scenarios).
+
+5. Idempotency
+   - `AuditVaultClient.ingest_data` sends an `Idempotency-Key` header (random by default), and tests can pass a fixed key.
+   - `tests/test_idempotency.py` verifies two ingest calls with the same key return the same job_id and that the header is present on both requests.
+
+6. Control vs Data Plane
+   - The client exposes both control-plane (ingest, jobs, providers) and data-plane (logs search, raw retrieval) endpoints and tests cover both planes using HTTP mocks.
+
+---
+
+## ✨ Developer ergonomics — how to run the tests locally
+
+Recommended: install the project in editable mode so imports work without setting PYTHONPATH:
+
+```bash
+python -m pip install -e .
+pytest -q
 ```
 
-Valid states: `pending`, `processing`, `completed`, `failed`.
+If you prefer not to make the project installable, tests can be run from the repo root with PYTHONPATH:
 
----
-
-### 🔍 3. Audit Metadata Search
-
-**Endpoint**: `GET /v1/logs?limit=50&offset=0`
-
-**Response** (200 OK):
-
-```json
-{
-  "data": [
-    { "id": "log_1", "checksum": "sha256:e3b0c...", "timestamp": "2026-01-01T12:00:00Z" }
-  ],
-  "meta": { "total_count": 150, "has_more": true }
-}
+```bash
+PYTHONPATH=$(pwd) pytest -q
 ```
 
 ---
 
-### 📥 4. Raw Content Retrieval
+## Implementation details & notes
 
-**Endpoint**: `GET /v1/logs/{log_id}/raw`
+- Client design:
+  - `AuditVaultClient(base_url=..., session=None, retry=None)` accepts an optional `requests.Session`, so tests can inject a preconfigured or mocked session.
+  - `ingest_data(request, idempotency_key=None)` will add an `Idempotency-Key` header; pass a stable key in tests to verify idempotency.
+  - Errors: the client raises `ApiError` and `NotFoundError` (see `src/clients/errors.py`) which carry `status_code` and `body` for programmatic assertions.
 
-**Response** (200 OK):
+- Checksum canonicalization:
+  - Tests canonicalize JSON before hashing with `sort_keys=True` and compact separators. If the SUT stores a different byte representation, update the test canonicalization to match.
 
-* Streams the raw JSON content exactly as stored in S3.
-* Includes header `X-Vault-Checksum` for integrity verification.
-
----
-
-### 🔌 5. Provider Connection Test
-
-**Endpoint**: `POST /v1/providers/validate`
-
-**Request**:
-
-```json
-{ "provider_type": "rest", "api_key": "secret_token" }
-```
-
-**Responses**:
-
-* 200 OK: `{ "connection": "secure", "latency_ms": 45 }`
-* 401 Unauthorized: `{ "error": "Invalid Provider Credentials" }`
+- Logging & observability:
+  - `JobPoller` currently prints polling messages; for production runs prefer `logging` (easy follow-up).
 
 ---
 
-## 3. High-Value Test Scenarios
+## Next improvements (suggested)
 
-### 💎 Scenario 1: Log Fidelity Test (Data Integrity)
-
-Objective: prove the service does not mutate or corrupt data in transit.
-
-Steps:
-
-1. **Setup**: Mock the external provider to return JSON containing edge cases:
-
-   * Unicode characters
-   * Large integers
-   * Nested objects with null values
-2. **Execution**: Trigger `/v1/ingest` and poll job status until `completed`.
-3. **Validation**:
-
-   * Fetch raw content via `/v1/logs/{log_id}/raw`.
-   * Perform a deep structural diff between mocked input and stored output.
-4. **Side-Effect Validation**:
-
-   * Verify MongoDB metadata checksum equals SHA256 of the S3 object.
+- Add an integration test using `moto` (S3) and `mongomock` to validate metadata checksum is stored in DB and matches S3 object bytes.
+- Add structured logging across the client and poller.
+- Add CI pipeline (GitHub Actions) running tests, linting, and type checks (mypy).
 
 ---
 
-### 🚧 Scenario 2: Infrastructure Brownout
-
-Objective: validate resilience under partial infrastructure failure.
-
-Steps:
-
-1. **Setup**: Mock S3 to return `503 SlowDown` for the first two upload attempts, then succeed.
-2. **Execution**: Trigger ingestion.
-3. **Validation**:
-
-   * Assert retry strategy is applied.
-   * Job completes successfully without manual retry.
-
----
-
-### 💡 Scenario 3: Creative Challenge
-
-Design and implement **one** test that exposes a race condition or consistency flaw.
-
-Example:
-
-* A log record exists in MongoDB.
-* The corresponding S3 object is manually deleted.
-* A client requests `/v1/logs/{log_id}/raw`.
-
-Define the expected system behavior and assert it.
-
----
-
-## 4. Submission Requirements
-1. your python automation project
-
-2. **README.md**
-
-   * High-level explanation of the test architecture and dependency injection strategy.
-   * Description of how mocks are wired and isolated per test.
-
-2. **Docker**
-
-   * You can use the example docker file in the repo to create one for us to run your automation `docker build -t vault-test . && docker run --rm vault-test`. We are aware course the tests will fail :-)
-
----
-
-**Optional**: A starter `pytest` example for the Log Fidelity deep-diff test may be included, but architectural decisions, correctness, and data integrity validation carry the highest weight.
+If you want, I can implement any of the next improvements (integration test with `moto` + `mongomock`, logging replacement, or CI workflow).
