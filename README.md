@@ -151,3 +151,13 @@ PYTHONPATH=$(pwd) pytest -q
 ---
 
 If you want, I can implement any of the next improvements (integration test with `moto` + `mongomock`, logging replacement, or CI workflow).
+
+## AI tools used
+
+The following AI tools were used to assist during development, code edits, testing, and documentation review:
+
+1. co-pilot
+2. NotebookLM
+3. gemini
+
+These tools were used as assistants; all changes were reviewed and validated by the developer.
