@@ -125,6 +125,17 @@ If you prefer not to make the project installable, tests can be run from the rep
 PYTHONPATH=$(pwd) pytest -q
 ```
 
+### Running tests with Docker
+
+You can also run the test suite inside the repository Docker image. The project includes a `Dockerfile` — build the image and run it like this:
+
+```bash
+# build the test image and run it; the container will run the test suite and exit
+docker build -t vault-test . && docker run --rm vault-test
+```
+
+Note: The Docker image will execute the test suite as defined in the `Dockerfile`; environment differences may cause tests to fail if specific credentials or external services are required. Adjust the `Dockerfile` or pass environment variables to `docker run` if needed.
+
 ---
 
 ## Implementation details & notes

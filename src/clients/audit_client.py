@@ -2,7 +2,6 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from src.config.settings import BASE_URL, DEFAULT_TIMEOUT
-# Note: updated imports for models
 from src.models.schemas import (
     IngestRequest, IngestResponse, JobStatusResponse,
     ProviderValidationRequest, ConnectionResponse, LogSearchResponse
